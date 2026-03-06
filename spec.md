@@ -1,33 +1,38 @@
-# Hobby Tutorial Finder
+# CodeGear Shop
 
 ## Current State
-New project. No existing code.
+The app is a Hobby Tutorial Finder with:
+- A backend that stores hobbies (addHobby, getHobbies, removeHobby)
+- Internet Identity authentication
+- Hobby cards with YouTube tutorial search links
+- Error handling with retry logic for canister warm-up
 
 ## Requested Changes (Diff)
 
 ### Add
-- A page where the user can type in a hobby (e.g. "guitar", "photography", "chess")
-- Display a list of saved hobbies
-- For each hobby, show a section of relevant tutorial video suggestions (YouTube search embed or link cards)
-- Ability to remove a hobby from the list
-- Persist hobbies in backend storage
+- A "Shop" tab/section in the app navigation
+- Coding gear product data (pre-loaded, frontend-only) organized by category:
+  - Keyboards
+  - Mice
+  - Monitors
+  - Laptops
+  - Headphones
+  - Accessories (webcams, desk mats, cables, etc.)
+- Each product has: name, description, price range, and an Amazon search link
+- Products within each category are randomly shuffled on load to feel "fresh"
+- Clicking a product opens the Amazon search results in a new tab
+- A category filter row to show/hide categories
+- Navigation tabs to switch between "Hobbies" and "Shop" views
 
 ### Modify
-N/A
+- App.tsx: Add tab navigation at the top to switch between Hobby and Shop views
+- Header: Keep existing header but add tab switcher below it
 
 ### Remove
-N/A
+- Nothing removed
 
 ## Implementation Plan
-
-### Backend (Motoko)
-- Store a list of hobbies per user (as text entries)
-- CRUD: addHobby(name: Text), removeHobby(id: Nat), getHobbies() -> [Hobby]
-- Each hobby has: id, name, createdAt
-
-### Frontend
-- Main page with a text input and "Add Hobby" button
-- Hobby cards list: each card shows the hobby name, a "Find Tutorials" button, and a delete button
-- Clicking "Find Tutorials" opens a panel or section showing YouTube search results for "<hobby> tutorial" using YouTube's iframe search embed or direct search links as cards
-- Tutorial section shows 4-6 clickable YouTube search link cards with the hobby keyword
-- Empty state when no hobbies added yet
+1. Create a `shopData.ts` file with all product categories and items with Amazon search links
+2. Create a `ShopSection.tsx` component with category grid and product cards
+3. Update `App.tsx` to add tab navigation (Hobbies / Shop) and render the ShopSection
+4. Apply deterministic data-ocid markers to shop interactive elements

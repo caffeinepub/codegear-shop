@@ -9,6 +9,7 @@ import {
   Play,
   Plus,
   RefreshCw,
+  ShoppingBag,
   Sparkles,
   Trash2,
   Youtube,
@@ -17,6 +18,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Hobby } from "./backend.d";
+import ShopSection from "./components/ShopSection";
 import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useAddHobby, useGetHobbies, useRemoveHobby } from "./hooks/useQueries";
 
@@ -401,7 +403,10 @@ function EmptyState() {
 
 // ── Main App ─────────────────────────────────────────────────────────────────
 
+type AppTab = "hobbies" | "shop";
+
 export default function App() {
+  const [activeTab, setActiveTab] = useState<AppTab>("hobbies");
   const [inputValue, setInputValue] = useState("");
   const [expandedId, setExpandedId] = useState<bigint | null>(null);
   const [deletingId, setDeletingId] = useState<bigint | null>(null);
@@ -446,10 +451,17 @@ export default function App() {
     try {
       await addHobby.mutateAsync(name);
       setInputValue("");
-      toast.success(`Added "${name}" to your hobbies! 🎉`);
+      toast.success(`Added "${name}" to your hobbies!`);
       inputRef.current?.focus();
-    } catch {
-      toast.error("Failed to add hobby. Please try again.");
+    } catch (err) {
+      const msg = (err as Error)?.message ?? "";
+      if (msg.includes("warming up") || msg.includes("starting up")) {
+        toast.error(
+          "Backend is still warming up -- please wait a moment and try again.",
+        );
+      } else {
+        toast.error("Failed to add hobby. Please try again.");
+      }
     }
   };
 
@@ -571,123 +583,196 @@ export default function App() {
             </motion.div>
           </div>
 
-          {/* Add hobby form */}
-          <motion.form
-            initial={{ opacity: 0, y: 12 }}
+          {/* Tab navigation */}
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15, duration: 0.4, ease: "easeOut" }}
-            onSubmit={handleAdd}
-            className="flex gap-2"
+            transition={{ delay: 0.1, duration: 0.35, ease: "easeOut" }}
+            className="flex gap-1 p-1 rounded-xl bg-muted/60 border border-border w-fit mb-4"
+            role="tablist"
           >
-            <Input
-              data-ocid="hobby.input"
-              ref={inputRef}
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              placeholder="Enter a hobby (e.g. guitar, photography...)"
-              className="flex-1 h-12 text-base bg-card border-2 border-border focus-visible:border-primary focus-visible:ring-0 rounded-xl placeholder:text-muted-foreground/60"
-              disabled={addHobby.isPending}
-              maxLength={60}
-              aria-label="Hobby name"
-            />
-            <Button
-              data-ocid="hobby.add_button"
-              type="submit"
-              disabled={addHobby.isPending || isLoading || !inputValue.trim()}
-              className="h-12 px-5 rounded-xl font-display font-bold text-base gap-2 hobby-gradient text-white border-0 hover:opacity-90 transition-opacity shadow-card disabled:opacity-50"
+            <button
+              type="button"
+              data-ocid="nav.hobbies.tab"
+              role="tab"
+              aria-selected={activeTab === "hobbies"}
+              onClick={() => setActiveTab("hobbies")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                activeTab === "hobbies"
+                  ? "bg-card text-foreground shadow-xs border border-border/60"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
             >
-              {addHobby.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Plus className="w-5 h-5" />
-              )}
-              {addHobby.isPending ? "Adding..." : "Add"}
-            </Button>
-          </motion.form>
+              <BookOpen className="w-4 h-4" />
+              Hobbies
+            </button>
+            <button
+              type="button"
+              data-ocid="nav.shop.tab"
+              role="tab"
+              aria-selected={activeTab === "shop"}
+              onClick={() => setActiveTab("shop")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+                activeTab === "shop"
+                  ? "bg-card text-foreground shadow-xs border border-border/60"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              <ShoppingBag className="w-4 h-4" />
+              Shop
+            </button>
+          </motion.div>
+
+          {/* Add hobby form — only on Hobbies tab */}
+          <AnimatePresence>
+            {activeTab === "hobbies" && (
+              <motion.form
+                key="add-hobby-form"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
+                transition={{ delay: 0.15, duration: 0.3, ease: "easeOut" }}
+                onSubmit={handleAdd}
+                className="flex gap-2"
+              >
+                <Input
+                  data-ocid="hobby.input"
+                  ref={inputRef}
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="Enter a hobby (e.g. guitar, photography...)"
+                  className="flex-1 h-12 text-base bg-card border-2 border-border focus-visible:border-primary focus-visible:ring-0 rounded-xl placeholder:text-muted-foreground/60"
+                  disabled={addHobby.isPending}
+                  maxLength={60}
+                  aria-label="Hobby name"
+                />
+                <Button
+                  data-ocid="hobby.add_button"
+                  type="submit"
+                  disabled={
+                    addHobby.isPending || isLoading || !inputValue.trim()
+                  }
+                  className="h-12 px-5 rounded-xl font-display font-bold text-base gap-2 hobby-gradient text-white border-0 hover:opacity-90 transition-opacity shadow-card disabled:opacity-50"
+                >
+                  {addHobby.isPending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-5 h-5" />
+                  )}
+                  {addHobby.isPending ? "Adding..." : "Add"}
+                </Button>
+              </motion.form>
+            )}
+          </AnimatePresence>
         </div>
       </header>
 
       {/* ── Main Content ───────────────────────────────────── */}
       <main className="flex-1 container max-w-3xl mx-auto px-4 py-6">
-        {/* Loading state */}
-        {isLoading && (
-          <div
-            data-ocid="hobby.loading_state"
-            className="flex flex-col items-center justify-center py-16 gap-3"
-          >
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground text-sm">
-              Loading your hobbies...
-            </p>
-          </div>
-        )}
-
-        {/* Error state */}
-        {isError && !isLoading && (
-          <motion.div
-            data-ocid="hobby.error_state"
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl border-2 border-destructive/30 bg-destructive/5 p-6 text-center"
-          >
-            <p className="text-2xl mb-2">😕</p>
-            <p className="font-display font-bold text-foreground mb-1">
-              Something went wrong
-            </p>
-            <p className="text-sm text-muted-foreground mb-4">
-              {(error as Error)?.message ??
-                "Failed to load hobbies. Please refresh."}
-            </p>
-            <Button
-              data-ocid="hobby.error_state"
-              variant="outline"
-              size="sm"
-              onClick={() => refetch()}
-              className="gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 transition-colors"
+        <AnimatePresence mode="wait">
+          {activeTab === "shop" ? (
+            <motion.div
+              key="shop-tab"
+              initial={{ opacity: 0, x: 16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Retry
-            </Button>
-          </motion.div>
-        )}
-
-        {/* Hobby list */}
-        {!isLoading &&
-          !isError &&
-          (hobbies.length === 0 ? (
-            <EmptyState />
+              <ShopSection />
+            </motion.div>
           ) : (
-            <>
-              <div className="flex items-center justify-between mb-4">
-                <p className="text-sm font-semibold text-muted-foreground">
-                  {hobbies.length} {hobbies.length === 1 ? "hobby" : "hobbies"}{" "}
-                  tracked
-                </p>
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-hobby-coral" />
-                  <div className="w-2 h-2 rounded-full bg-hobby-teal" />
-                  <div className="w-2 h-2 rounded-full bg-hobby-amber" />
+            <motion.div
+              key="hobbies-tab"
+              initial={{ opacity: 0, x: -16 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 8, transition: { duration: 0.15 } }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
+            >
+              {/* Loading state */}
+              {isLoading && (
+                <div
+                  data-ocid="hobby.loading_state"
+                  className="flex flex-col items-center justify-center py-16 gap-3"
+                >
+                  <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  <p className="text-muted-foreground text-sm">
+                    Loading your hobbies...
+                  </p>
                 </div>
-              </div>
+              )}
 
-              <motion.div layout className="flex flex-col gap-3">
-                <AnimatePresence mode="popLayout">
-                  {hobbies.map((hobby, index) => (
-                    <HobbyCard
-                      key={hobby.id.toString()}
-                      hobby={hobby}
-                      index={index}
-                      isDeleting={deletingId === hobby.id}
-                      anyDeleting={deletingId !== null}
-                      onDelete={() => handleDelete(hobby)}
-                      isExpanded={expandedId === hobby.id}
-                      onToggleExpand={() => handleToggleExpand(hobby.id)}
-                    />
-                  ))}
-                </AnimatePresence>
-              </motion.div>
-            </>
-          ))}
+              {/* Error state */}
+              {isError && !isLoading && (
+                <motion.div
+                  data-ocid="hobby.error_state"
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border-2 border-destructive/30 bg-destructive/5 p-6 text-center"
+                >
+                  <p className="text-2xl mb-2">😕</p>
+                  <p className="font-display font-bold text-foreground mb-1">
+                    Something went wrong
+                  </p>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    {(error as Error)?.message?.includes("stopped") ||
+                    (error as Error)?.message?.includes("not found") ||
+                    (error as Error)?.message?.includes("could not find")
+                      ? "The app is still starting up. Tap Retry in a moment."
+                      : "Something went wrong loading your hobbies. Please try again."}
+                  </p>
+                  <Button
+                    data-ocid="hobby.retry_button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => refetch()}
+                    className="gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    Retry
+                  </Button>
+                </motion.div>
+              )}
+
+              {/* Hobby list */}
+              {!isLoading &&
+                !isError &&
+                (hobbies.length === 0 ? (
+                  <EmptyState />
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between mb-4">
+                      <p className="text-sm font-semibold text-muted-foreground">
+                        {hobbies.length}{" "}
+                        {hobbies.length === 1 ? "hobby" : "hobbies"} tracked
+                      </p>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-hobby-coral" />
+                        <div className="w-2 h-2 rounded-full bg-hobby-teal" />
+                        <div className="w-2 h-2 rounded-full bg-hobby-amber" />
+                      </div>
+                    </div>
+
+                    <motion.div layout className="flex flex-col gap-3">
+                      <AnimatePresence mode="popLayout">
+                        {hobbies.map((hobby, index) => (
+                          <HobbyCard
+                            key={hobby.id.toString()}
+                            hobby={hobby}
+                            index={index}
+                            isDeleting={deletingId === hobby.id}
+                            anyDeleting={deletingId !== null}
+                            onDelete={() => handleDelete(hobby)}
+                            isExpanded={expandedId === hobby.id}
+                            onToggleExpand={() => handleToggleExpand(hobby.id)}
+                          />
+                        ))}
+                      </AnimatePresence>
+                    </motion.div>
+                  </>
+                ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </main>
 
       {/* ── Footer ─────────────────────────────────────────── */}
