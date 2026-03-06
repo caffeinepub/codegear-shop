@@ -4,16 +4,20 @@ import { Toaster } from "@/components/ui/sonner";
 import {
   BookOpen,
   Loader2,
+  LogIn,
+  LogOut,
   Play,
   Plus,
+  RefreshCw,
   Sparkles,
   Trash2,
   Youtube,
 } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import type { Hobby } from "./backend.d";
+import { useInternetIdentity } from "./hooks/useInternetIdentity";
 import { useAddHobby, useGetHobbies, useRemoveHobby } from "./hooks/useQueries";
 
 // ── Tutorial suggestions per hobby ──────────────────────────────────────────
@@ -200,6 +204,7 @@ interface HobbyCardProps {
   hobby: Hobby;
   index: number;
   isDeleting: boolean;
+  anyDeleting: boolean;
   onDelete: () => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
@@ -209,6 +214,7 @@ function HobbyCard({
   hobby,
   index,
   isDeleting,
+  anyDeleting,
   onDelete,
   isExpanded,
   onToggleExpand,
@@ -256,7 +262,7 @@ function HobbyCard({
             variant="ghost"
             size="icon"
             onClick={onDelete}
-            disabled={isDeleting}
+            disabled={anyDeleting}
             className="flex-shrink-0 h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
             aria-label={`Remove ${hobby.name}`}
           >
@@ -401,9 +407,36 @@ export default function App() {
   const [deletingId, setDeletingId] = useState<bigint | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const { data: hobbies = [], isLoading, isError, error } = useGetHobbies();
+  const {
+    identity,
+    login,
+    clear,
+    isInitializing,
+    isLoggingIn,
+    isLoginError,
+    loginError,
+  } = useInternetIdentity();
+
+  const {
+    data: hobbies = [],
+    isLoading,
+    isError,
+    error,
+    refetch,
+  } = useGetHobbies();
   const addHobby = useAddHobby();
   const removeHobby = useRemoveHobby();
+
+  // Show a toast whenever a login error occurs
+  useEffect(() => {
+    if (isLoginError && loginError) {
+      toast.error(loginError.message ?? "Sign-in failed. Please try again.");
+    }
+  }, [isLoginError, loginError]);
+
+  const principalShort = identity
+    ? `${identity.getPrincipal().toString().slice(0, 8)}…`
+    : null;
 
   const handleAdd = async (e: FormEvent) => {
     e.preventDefault();
@@ -457,28 +490,86 @@ export default function App() {
         </div>
 
         <div className="relative container max-w-3xl mx-auto px-4 pt-12 pb-8">
-          {/* Logo mark */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            className="flex items-center gap-3 mb-4"
-          >
-            <div className="w-12 h-12 rounded-2xl hobby-gradient flex items-center justify-center shadow-pop">
-              <BookOpen className="w-6 h-6 text-white" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-display font-extrabold text-2xl md:text-3xl text-foreground leading-none">
-                  Hobby Tutorial Finder
-                </h1>
-                <Sparkles className="w-5 h-5 text-hobby-amber" />
+          {/* Top row: Logo + Auth */}
+          <div className="flex items-start justify-between gap-4 mb-4">
+            {/* Logo mark */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+              className="flex items-center gap-3"
+            >
+              <div className="w-12 h-12 rounded-2xl hobby-gradient flex items-center justify-center shadow-pop">
+                <BookOpen className="w-6 h-6 text-white" />
               </div>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Track hobbies, discover tutorials, level up your skills
-              </p>
-            </div>
-          </motion.div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="font-display font-extrabold text-2xl md:text-3xl text-foreground leading-none">
+                    Hobby Tutorial Finder
+                  </h1>
+                  <Sparkles className="w-5 h-5 text-hobby-amber" />
+                </div>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Track hobbies, discover tutorials, level up your skills
+                </p>
+              </div>
+            </motion.div>
+
+            {/* Auth area */}
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2, duration: 0.4, ease: "easeOut" }}
+              className="flex items-center gap-2 flex-shrink-0 mt-1"
+            >
+              {isInitializing ? (
+                <div
+                  data-ocid="auth.loading_state"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-muted/60 text-muted-foreground text-xs"
+                >
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  <span className="hidden sm:inline">Loading…</span>
+                </div>
+              ) : identity ? (
+                <>
+                  {/* Principal badge */}
+                  <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20">
+                    <div className="w-1.5 h-1.5 rounded-full bg-hobby-teal" />
+                    <span className="font-mono text-xs text-foreground/80 tracking-tight">
+                      {principalShort}
+                    </span>
+                  </div>
+                  {/* Sign Out */}
+                  <Button
+                    data-ocid="auth.sign_out_button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={clear}
+                    className="h-8 px-3 rounded-full text-xs font-semibold gap-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors border border-border/60"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>Sign Out</span>
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  data-ocid="auth.sign_in_button"
+                  variant="outline"
+                  size="sm"
+                  onClick={login}
+                  disabled={isLoggingIn}
+                  className="h-8 px-3 rounded-full text-xs font-semibold gap-1.5 border-border/80 hover:border-primary/50 hover:bg-primary/5 transition-all"
+                >
+                  {isLoggingIn ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <LogIn className="w-3.5 h-3.5" />
+                  )}
+                  <span>{isLoggingIn ? "Signing in…" : "Sign In"}</span>
+                </Button>
+              )}
+            </motion.div>
+          </div>
 
           {/* Add hobby form */}
           <motion.form
@@ -502,7 +593,7 @@ export default function App() {
             <Button
               data-ocid="hobby.add_button"
               type="submit"
-              disabled={addHobby.isPending || !inputValue.trim()}
+              disabled={addHobby.isPending || isLoading || !inputValue.trim()}
               className="h-12 px-5 rounded-xl font-display font-bold text-base gap-2 hobby-gradient text-white border-0 hover:opacity-90 transition-opacity shadow-card disabled:opacity-50"
             >
               {addHobby.isPending ? (
@@ -543,10 +634,20 @@ export default function App() {
             <p className="font-display font-bold text-foreground mb-1">
               Something went wrong
             </p>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mb-4">
               {(error as Error)?.message ??
                 "Failed to load hobbies. Please refresh."}
             </p>
+            <Button
+              data-ocid="hobby.error_state"
+              variant="outline"
+              size="sm"
+              onClick={() => refetch()}
+              className="gap-2 border-destructive/40 text-destructive hover:bg-destructive/10 hover:border-destructive/60 transition-colors"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Retry
+            </Button>
           </motion.div>
         )}
 
@@ -577,6 +678,7 @@ export default function App() {
                       hobby={hobby}
                       index={index}
                       isDeleting={deletingId === hobby.id}
+                      anyDeleting={deletingId !== null}
                       onDelete={() => handleDelete(hobby)}
                       isExpanded={expandedId === hobby.id}
                       onToggleExpand={() => handleToggleExpand(hobby.id)}
