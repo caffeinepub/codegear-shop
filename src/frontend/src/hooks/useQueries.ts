@@ -9,20 +9,13 @@ export function useGetHobbies() {
     queryKey: ["hobbies"],
     queryFn: async () => {
       if (!actor) return [];
-      try {
-        const result = await actor.getHobbies();
-        return result ?? [];
-      } catch (err) {
-        // If the canister is still starting up, return empty list instead of error
-        if (isCanisterUnavailable(err)) {
-          return [];
-        }
-        throw err;
-      }
+      const result = await actor.getHobbies();
+      return result ?? [];
     },
     enabled: !!actor && !isFetching,
-    retry: 5,
-    retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 20000),
+    // Always retry on failure so canister warm-up is transparent to the user
+    retry: 10,
+    retryDelay: (attempt) => Math.min(2000 * 2 ** attempt, 30000),
   });
 }
 
@@ -35,8 +28,7 @@ function isCanisterUnavailable(err: unknown): boolean {
     msg.includes("starting") ||
     msg.includes("IC0508") ||
     msg.includes("CallContextManager") ||
-    msg.includes("Reject code: 5") ||
-    msg.includes("rejected")
+    msg.includes("Reject code: 5")
   );
 }
 

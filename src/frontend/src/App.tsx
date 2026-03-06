@@ -426,7 +426,8 @@ export default function App() {
     data: hobbies = [],
     isLoading,
     isError,
-    error,
+    isFetching,
+    failureCount,
     refetch,
   } = useGetHobbies();
   const addHobby = useAddHobby();
@@ -678,7 +679,7 @@ export default function App() {
               exit={{ opacity: 0, x: -8, transition: { duration: 0.15 } }}
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
-              <ShopSection />
+              <ShopSection hobbies={hobbies} />
             </motion.div>
           ) : (
             <motion.div
@@ -689,20 +690,28 @@ export default function App() {
               transition={{ duration: 0.25, ease: "easeOut" }}
             >
               {/* Loading state */}
-              {isLoading && (
+              {(isLoading || (isFetching && !isError)) && (
                 <div
                   data-ocid="hobby.loading_state"
                   className="flex flex-col items-center justify-center py-16 gap-3"
                 >
                   <Loader2 className="w-8 h-8 animate-spin text-primary" />
                   <p className="text-muted-foreground text-sm">
-                    Loading your hobbies...
+                    {failureCount > 0
+                      ? "Backend is warming up, retrying..."
+                      : "Loading your hobbies..."}
                   </p>
+                  {failureCount > 0 && (
+                    <p className="text-muted-foreground/60 text-xs">
+                      This usually takes less than a minute after a fresh
+                      deploy.
+                    </p>
+                  )}
                 </div>
               )}
 
               {/* Error state */}
-              {isError && !isLoading && (
+              {isError && !isLoading && !isFetching && (
                 <motion.div
                   data-ocid="hobby.error_state"
                   initial={{ opacity: 0, y: 8 }}
@@ -714,11 +723,7 @@ export default function App() {
                     Something went wrong
                   </p>
                   <p className="text-sm text-muted-foreground mb-4">
-                    {(error as Error)?.message?.includes("stopped") ||
-                    (error as Error)?.message?.includes("not found") ||
-                    (error as Error)?.message?.includes("could not find")
-                      ? "The app is still starting up. Tap Retry in a moment."
-                      : "Something went wrong loading your hobbies. Please try again."}
+                    Could not reach the backend. Please tap Retry to try again.
                   </p>
                   <Button
                     data-ocid="hobby.retry_button"
